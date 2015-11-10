@@ -20,8 +20,20 @@ body {
     font-weight: normal;
 }
 
+#alarmsList li a {
+    padding: 5%;
+}
+
+.fliper {
+    position: absolute !important;
+    right: 5% !important;
+    top: 50%; 
+    margin-top: -1.5em;
+}
+
 #map {
-    width: 100%;   
+    width: 100%;
+    text-align: center;
 }
 
 #clock {
@@ -40,9 +52,10 @@ body {
     position: fixed;
     bottom: 3%;
     right: 3%;
-    width: 4rem;
-    height: 4rem;
+    width: 3.5rem;
+    height: 3.5rem;
     background-color: forestgreen;
-    border-radius: 45%;
+    border-radius: 50%;
     opacity: 0.8;
+    z-index: 2;
 }

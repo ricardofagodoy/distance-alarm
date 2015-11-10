@@ -49,13 +49,8 @@
             </div>
 
             <!-- LIST WITH EXISTENT ALARMS -->
-            <ul data-role="listview" data-inset="true">
-                <li data-role="list-divider">Active alarms</li>
-                <li><a href="#">Inbox</a></li>
-                <li><a href="#">Outbox</a></li>
-                <li data-role="list-divider">Inactive alarms</li>
-                <li><a href="#">Friends</a></li>
-                <li><a href="#">Work</a></li>
+            <ul id="alarmsList" data-role="listview" data-inset="true" data-icon="false">
+                <li id="activeAlarms" data-role="list-divider">Alarms</li>
             </ul>
 
             <!-- NEW ALARM BUTTON -->
@@ -80,7 +75,11 @@
             </div>
         </fieldset>
           
-          <div id="map" tabindex="2"></div>
+          <div id="map" tabindex="2">
+              <span style="position: relative; top: 50%">
+                  Loading map...
+              </span>
+        </div>
           
           <a id="saveAlarm" href="#" data-role="button" tabindex="3">Save Alarm</a>
 

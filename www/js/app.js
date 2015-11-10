@@ -11,10 +11,11 @@ $(document).on("mobileinit", function () {
 
 $.when(deviceReadyDeferred, jqmReadyDeferred).then(init);
 
-var GPS_CONFIG = {maximumAge: 3000, timeout: 5000, enableHighAccuracy: true},
+var GPS_CONFIG = {maximumAge: 1, timeout: 5000, enableHighAccuracy: true},
     CLOCK_MODE = 1, // 0 for 24hours
+    currentPosition = {},
     alarms = [],
-    currentAlarm = {};
+    currentAlarm = {status: 1};
 
 function init() { 
     
@@ -25,38 +26,95 @@ function init() {
     networkStateChecker.checkInternetStatus();
     networkStateChecker.setInternetStatusListeners();
     
-    // Also check how's our geolocation doin'
-    gpsStateChecker.checkGpsStatus();  
+    // Start watching whenever user moves
+    gpsStateChecker.setGpsListener();  
+    
+    // Adjust map height to screen size
+    $('#map').height($.mobile.getScreenHeight()/2); 
+    
+    // Load all alarms
+    alarmHandler.loadAlarms();
     
     // The new alarm click (green circled button)
-    $('#newAlarm').click(function(e) {
+    $('#newAlarm').click(function(e) { 
         
-        $('#map').height($.mobile.getScreenHeight()/2);
+        if($('#internetStatus').html() == 'OFF') {
+            
+            event.preventDefault();
+            
+            navigator.notification.alert (
+                'You need internet connection prior to that!',
+                undefined,         
+                'Internet needed!',            
+                'Internet, got it!'                  
+            );  
+            
+            return;
+        }
         
-        navigator.geolocation.getCurrentPosition(onGeolocationSuccess,
-                                                 gpsStateChecker.onGpsError,
-                                                 GPS_CONFIG);
-    });
+        setTimeout(function() {
+            mapHandler.loadMap(currentPosition.lat, currentPosition.lng)
+        }, 1000); 
+    }); 
     
     // When save an alarm
     $('#saveAlarm').click(function(event) {
         
         var alarmName = $('#alarmName').val();
         
-        if(!alarmName || alarmName == '')
+        if(!alarmName || alarmName == '') {
+            
+            event.preventDefault();
+            
             navigator.notification.alert (
                 'Fill out a name for this alarm!',
                 undefined,         
-                'Woops!',           
+                'Woops!',            
                 'Ok, I will'                  
             );
-        
+        } else {
+            currentAlarm.name = alarmName;
+            $('#alarmName').val('');
+            
+            alarms.push(currentAlarm);
+            localStorage.setItem('alarms', JSON.stringify(alarms));
+            
+            currentAlarm = {status: 1};
+            
+            $.mobile.back();
+        }        
     });
 }
 
-function onGeolocationSuccess(position) {    
-    mapHandler.loadMap(position.coords.latitude, position.coords.longitude);
-};
+var alarmHandler = {
+    verifyStatus: function() {
+    },
+    
+    loadAlarms: function() {
+        
+        var stringAlarms = localStorage.getItem('alarms');
+        
+        if(stringAlarms === null || stringAlarms.length === 0)
+            return;
+        
+        alarms = JSON.parse(stringAlarms);   
+        
+        $.each(alarms, function(i, v) {
+            $('#activeAlarms').after(
+                
+            '<li><a href="#">' + v.name +
+            '<span class="fliper">' +
+            '<select name="flip2" id="flip2" data-role="flipswitch">' +
+                '<option value="0">Off</option>' +
+                '<option value="1">On</option>' +
+            '</select>' +
+            '</span></a></li>');
+                                         
+            $('#alarmsList').listview('refresh');
+            $('#alarmsList').trigger("create");
+        }); 
+    } 
+}; 
 
 // CLOCK HANDLER  TODO: use native callbacks
 var clockHandler = {
@@ -105,10 +163,10 @@ var mapHandler = {
             zoom: 12,
             mapTypeId: google.maps.MapTypeId.ROADMAP
         };
-    
+
         // Create map we see and attach to 'map' element
         var map = new google.maps.Map(document.getElementById("map"), mapOptions); 
-    
+
         // Create and set a marker to its current position
         var marker = new google.maps.Marker({
             position: new google.maps.LatLng(lat, lng),
@@ -123,20 +181,18 @@ var mapHandler = {
             
             currentAlarm.lat = event.latLng.lat();
             currentAlarm.lng = event.latLng.lng();
-            
-            alert(JSON.stringify(currentAlarm));
         });
-    }  
+    } 
 };
 
 // GPS STATE CHECKER
 var gpsStateChecker = {
     
-    checkGpsStatus: function() {
+    setGpsListener: function() {
     
-        navigator.geolocation.getCurrentPosition($.proxy(this.onGpsSuccess, this),
-                                                 $.proxy(this.onGpsError, this),
-                                                 GPS_CONFIG);
+        navigator.geolocation.watchPosition($.proxy(this.onGpsSuccess, this),
+                                            $.proxy(this.onGpsError, this),
+                                            GPS_CONFIG);
         
     },
     
@@ -155,6 +211,11 @@ var gpsStateChecker = {
     
     onGpsSuccess: function(position) {
         this.setGpsStatus('ON', 'green');
+        
+        currentPosition.lat = position.coords.latitude;
+        currentPosition.lng = position.coords.longitude;
+        
+        alarmHandler.verifyStatus();
     },
     
     setGpsStatus: function(value, color) {
