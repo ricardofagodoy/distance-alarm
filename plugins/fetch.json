@@ -30,5 +30,30 @@
         },
         "is_top_level": true,
         "variables": {}
+    },
+    "nl.x-services.plugins.toast": {
+        "source": {
+            "type": "registry",
+            "id": "nl.x-services.plugins.toast@2.0.2"
+        },
+        "is_top_level": true,
+        "variables": {}
+    },
+    "org.apache.cordova.toast_notification": {
+        "source": {
+            "type": "git",
+            "url": "https://github.com/Linkpass/Toast.git",
+            "subdir": "."
+        },
+        "is_top_level": true,
+        "variables": {}
+    },
+    "cordova-plugin-x-toast": {
+        "source": {
+            "type": "registry",
+            "id": "cordova-plugin-x-toast"
+        },
+        "is_top_level": true,
+        "variables": {}
     }
 }

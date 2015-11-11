@@ -14,20 +14,48 @@ $.when(deviceReadyDeferred, jqmReadyDeferred).then(init);
 var GPS_CONFIG = {maximumAge: 1, timeout: 5000, enableHighAccuracy: true},
     CLOCK_MODE = 1, // 0 for 24hours
     currentPosition = {},
-    alarms = [],
+    alarms = {},
     currentAlarm = {status: 1};
+
+function onall(success) {
+    console.log('Success: ' + success);
+}
 
 function init() { 
     
     // Sets clock to tick out
     clockHandler.showClock();
     
+    // When clicking on clock
+    $('#clock').click(function(event) {
+        navigator.notification.confirm(
+            '12 or 24 hours clock?',
+            function(button) {
+                CLOCK_MODE = button == 1 ? button : 0;
+            },
+            'Choose your clock format',
+            ['12 hours','24 hours']
+        );
+    });
+    
     // Check if we've got data connection set up
     networkStateChecker.checkInternetStatus();
     networkStateChecker.setInternetStatusListeners();
     
+    // Click on Internet status viewer
+    $('#internetStatusWrapper').click(function(event) {
+        networkStateChecker.setInternetStatus('Checking...', 'black');
+        networkStateChecker.checkInternetStatus();
+    });
+    
     // Start watching whenever user moves
-    gpsStateChecker.setGpsListener();  
+    gpsStateChecker.setGpsListener(); 
+    
+    // Click on GPS status viewer
+    $('#gpsStatusWrapper').click(function(event) {
+        gpsStateChecker.setGpsStatus('Checking...', 'black');
+        gpsStateChecker.checkGpsStatus();
+    });
     
     // Adjust map height to screen size
     $('#map').height($.mobile.getScreenHeight()/2); 
@@ -52,6 +80,8 @@ function init() {
             return;
         }
         
+        $('#alarmName').val('');
+        
         setTimeout(function() {
             mapHandler.loadMap(currentPosition.lat, currentPosition.lng)
         }, 1000); 
@@ -72,22 +102,109 @@ function init() {
                 'Woops!',            
                 'Ok, I will'                  
             );
-        } else {
+        } else { 
             currentAlarm.name = alarmName;
-            $('#alarmName').val('');
             
-            alarms.push(currentAlarm);
-            localStorage.setItem('alarms', JSON.stringify(alarms));
+            // IF IT IS EDITING
+            if(currentAlarm.id) {
+                
+                alarms[currentAlarm.id] = currentAlarm;
+                $('#alarmNameLabel-'+ currentAlarm.id).html(currentAlarm.name);
+                
+            } else {
+                currentAlarm.id = alarmHandler.getNextId();
+                alarms[currentAlarm.id] = currentAlarm; 
+                
+                alarmHandler.addAlarmToList(currentAlarm);
+            }
+
+            alarmHandler.saveAlarms();
             
             currentAlarm = {status: 1};
-            
             $.mobile.back();
         }        
     });
+    
+    document.addEventListener("pause", alarmHandler.saveAlarms, false);
+    
+    document.addEventListener("backbutton", function() {
+        alarmHandler.saveAlarms();
+        $.mobile.back();
+    }, false);
+    
+    document.addEventListener("menubutton", alarmHandler.saveAlarms, false);
 }
 
+// ALARM HANDLER
 var alarmHandler = {
+     
     verifyStatus: function() {
+    },
+    
+    getNextId: function() {
+        
+        var nextId = localStorage.getItem('nextId');
+        
+        if(nextId === null || nextId.length === 0)
+            nextId = 1;
+        
+        nextId = parseInt(nextId);
+        
+        localStorage.setItem('nextId', nextId+1);
+        
+        return nextId;
+    },
+    
+    saveAlarms: function() {
+        
+        var stringAlarms = JSON.stringify(alarms);
+        
+        localStorage.setItem('alarms', stringAlarms);
+        
+        console.log('Alarms saved: ' + stringAlarms);
+    },
+    
+    addAlarmToList: function(alarm) {
+        
+        $('#activeAlarms').after(
+                
+        '<li id="alarm-'+ alarm.id +'">' +
+            '<a href="#"><span id="alarmNameLabel-'+ alarm.id +'">' + alarm.name + '</span>' +
+            '<span id="flipperWrapper" class="fliper">' +
+                '<select name="flip" id="flip" data-role="flipswitch">' +
+                    '<option value="0">Off</option>' +
+                    '<option value="1">On</option>' +
+                '</select>' +
+            '</span></a>' +
+            '</li>');
+                                         
+        $('#alarmsList').listview('refresh');
+        $('#alarmsList').trigger("create");
+        
+        $('#alarm-' + alarm.id + ' #flip').val(alarm.status).flipswitch('refresh');            
+        
+        // EVENTS TO EACH LIST ITEM
+        
+        $('#alarm-' + alarm.id).bind('taphold', function(e) {
+            delete alarms[alarm.id]; 
+            $('#alarm-' + alarm.id).remove();
+        });
+        
+        $('#alarm-' + alarm.id).on('vclick', function(event) {
+            
+            currentAlarm = alarm;
+            
+            $('#alarmName').val(alarm.name);
+            $.mobile.changePage('#newAlarmDialog');
+            
+            setTimeout(function() {
+                mapHandler.loadMap(alarm.lat, alarm.lng)
+            }, 1000);
+        });
+        
+        $('#alarm-' + alarm.id + ' #flip').on("change", function(event, ui) {
+            alarm.status = $(this).val();
+        });
     },
     
     loadAlarms: function() {
@@ -97,23 +214,14 @@ var alarmHandler = {
         if(stringAlarms === null || stringAlarms.length === 0)
             return;
         
+        console.log('Alarms loaded: ' + stringAlarms);
+        
         alarms = JSON.parse(stringAlarms);   
         
         $.each(alarms, function(i, v) {
-            $('#activeAlarms').after(
-                
-            '<li><a href="#">' + v.name +
-            '<span class="fliper">' +
-            '<select name="flip2" id="flip2" data-role="flipswitch">' +
-                '<option value="0">Off</option>' +
-                '<option value="1">On</option>' +
-            '</select>' +
-            '</span></a></li>');
-                                         
-            $('#alarmsList').listview('refresh');
-            $('#alarmsList').trigger("create");
+            alarmHandler.addAlarmToList(v);           
         }); 
-    } 
+    }
 }; 
 
 // CLOCK HANDLER  TODO: use native callbacks
@@ -187,6 +295,12 @@ var mapHandler = {
 
 // GPS STATE CHECKER
 var gpsStateChecker = {
+    
+    checkGpsStatus: function() {
+        navigator.geolocation.getCurrentPosition($.proxy(this.onGpsSuccess, this),
+                                                 $.proxy(this.onGpsError, this),
+                                                 GPS_CONFIG);
+    },
     
     setGpsListener: function() {
     
