@@ -22,6 +22,7 @@ body {
 
 #alarmsList li a {
     padding: 5%;
+    font-size: 1.2rem;
 }
 
 .fliper {
@@ -42,10 +43,7 @@ body {
 }
 
 .center-wrapper{
-  text-align: center;
-}
-.center-wrapper * {
-  margin: 0 auto;
+    text-align: center;
 }
 
 #newAlarm {

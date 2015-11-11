@@ -11,15 +11,11 @@ $(document).on("mobileinit", function () {
 
 $.when(deviceReadyDeferred, jqmReadyDeferred).then(init);
 
-var GPS_CONFIG = {maximumAge: 1, timeout: 5000, enableHighAccuracy: true},
+var GPS_CONFIG = { maximumAge: 1, timeout: 5000, enableHighAccuracy: true },
     CLOCK_MODE = 1, // 0 for 24hours
     currentPosition = {},
     alarms = {},
-    currentAlarm = {status: 1};
-
-function onall(success) {
-    console.log('Success: ' + success);
-}
+    currentAlarm = { status: 1 };
 
 function init() { 
     
@@ -84,7 +80,7 @@ function init() {
         
         setTimeout(function() {
             mapHandler.loadMap(currentPosition.lat, currentPosition.lng)
-        }, 1000); 
+        }, 1500); 
     }); 
     
     // When save an alarm
@@ -102,27 +98,29 @@ function init() {
                 'Woops!',            
                 'Ok, I will'                  
             );
-        } else { 
-            currentAlarm.name = alarmName;
             
-            // IF IT IS EDITING
-            if(currentAlarm.id) {
+            return;
+        }  
+        
+        currentAlarm.name = alarmName;
+            
+        // IF IT IS EDITING
+        if(currentAlarm.id) {
                 
-                alarms[currentAlarm.id] = currentAlarm;
-                $('#alarmNameLabel-'+ currentAlarm.id).html(currentAlarm.name);
+            alarms[currentAlarm.id] = currentAlarm;
+            $('#alarmNameLabel-'+ currentAlarm.id).html(currentAlarm.name);
                 
-            } else {
-                currentAlarm.id = alarmHandler.getNextId();
-                alarms[currentAlarm.id] = currentAlarm; 
+        } else {
+            currentAlarm.id = alarmHandler.getNextId();
+            alarms[currentAlarm.id] = currentAlarm; 
                 
-                alarmHandler.addAlarmToList(currentAlarm);
-            }
+            alarmHandler.addAlarmToList(currentAlarm);
+        }
 
-            alarmHandler.saveAlarms();
+        alarmHandler.saveAlarms();
             
-            currentAlarm = {status: 1};
-            $.mobile.back();
-        }        
+        currentAlarm = {status: 1};
+        $.mobile.back();      
     });
     
     document.addEventListener("pause", alarmHandler.saveAlarms, false);
@@ -184,22 +182,31 @@ var alarmHandler = {
         $('#alarm-' + alarm.id + ' #flip').val(alarm.status).flipswitch('refresh');            
         
         // EVENTS TO EACH LIST ITEM
-        
-        $('#alarm-' + alarm.id).bind('taphold', function(e) {
-            delete alarms[alarm.id]; 
-            $('#alarm-' + alarm.id).remove();
+        $('#alarm-' + alarm.id).on('taphold', function(e) { 
+             navigator.notification.confirm (
+                'Delete alarm ' + alarm.name,
+                function(button) {
+                    
+                    if(button == 1) {
+                        delete alarms[alarm.id]; 
+                        $('#alarm-' + alarm.id).remove();
+                    }  
+                },
+                'Confirm deletion?',
+                ['Delete','Cancel']
+            );
         });
         
-        $('#alarm-' + alarm.id).on('vclick', function(event) {
+        $('#alarm-' + alarm.id).on('tap', function(event) {
             
             currentAlarm = alarm;
             
             $('#alarmName').val(alarm.name);
-            $.mobile.changePage('#newAlarmDialog');
+            $.mobile.changePage('#newAlarmDialog', {transition: "fade"});
             
             setTimeout(function() {
                 mapHandler.loadMap(alarm.lat, alarm.lng)
-            }, 1000);
+            }, 1500);
         });
         
         $('#alarm-' + alarm.id + ' #flip').on("change", function(event, ui) {
